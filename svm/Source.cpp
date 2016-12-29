@@ -1,6 +1,6 @@
-#include <opencv2/opencv.hpp>
+#include <opencv2\opencv.hpp>
 #include <opencv2/nonfree/nonfree.hpp>
-#include <opencv2/nonfree/features2d.hpp>
+#include <opencv2\nonfree\features2d.hpp>
 #include "Utilities.h"
 #include <fstream>
 #include <sstream>
@@ -8,23 +8,22 @@
 using namespace std;
 using namespace cv;
 
-HOGDescriptor hog;
 
 int main(){
 
 	initModule_nonfree();
 
-	string imagePath = "train/";
-	string imageTestPath = "test/";
+	string imagePath = "train/";//"DatasetSample/Train/";
+	string imageTestPath = "test/"; //"DatasetSample/Test/";
 
 	Mat example;
-	vector<int> labels /*= { 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 }*/;
+	vector<int> labels;
 	CvSVM svm;
 
 	vector <vector <string> > data;
-	ifstream infile("trainLabels.csv");
+	ifstream infile("Dataset/Train/trainLabels.csv");
 	
-	Mat learningLabels(100, 1, CV_32SC1);
+	int nPictures = 3000;
 
 	SiftDescriptorExtractor siftDescExtractor;
 	Mat siftDescriptor;
@@ -45,6 +44,7 @@ int main(){
 
 	if (train){
 
+		cout << "Reading Labels" << endl;
 		while (infile)
 		{
 			string s;
@@ -67,7 +67,8 @@ int main(){
 			cerr << "Fooey!\n";
 		}
 
-		for (int i = 1; i < data.size(); i++){
+		//for (int i = 1; i < data.size(); i++){
+		for (int i = 1; i < nPictures+1; i++){
 			string label = data[i][1];
 			if (label == "airplane") labels.push_back(1);
 			if (label == "automobile") labels.push_back(2);
@@ -81,7 +82,9 @@ int main(){
 			if (label == "truck") labels.push_back(10);
 		}
 
-		for (int i = 0; i < 100; i++){
+		cout << "Reading features for vocabulary" << endl;
+
+		for (int i = 0; i < nPictures; i++){
 			string imageName = imagePath + to_string(i+1) + ".png";
 			//string imageName = imagePath + to_string(i + 1) + ".jpg";
 			Utilities::openImage(imageName, example);
@@ -89,7 +92,6 @@ int main(){
 			siftDescExtractor.detect(example, keypoints);
 			siftDescExtractor.compute(example, keypoints, siftDescriptor);
 			siftFeatures.push_back(siftDescriptor);
-			learningLabels.at<int>(i) = labels[i];
 		}
 
 		Mat featuresUnclustered;
@@ -100,6 +102,8 @@ int main(){
 		TermCriteria tc(CV_TERMCRIT_ITER, 100, 0.001);
 		int retries = 1;
 		int flags = KMEANS_PP_CENTERS;
+
+		cout << "Constructing vocabulary" << endl;
 
 		BOWKMeansTrainer bowTrainer(dictionarySize, tc, retries, flags);
 		Mat dictionary = bowTrainer.cluster(siftFeatures);
@@ -114,7 +118,9 @@ int main(){
 		bowDE.setVocabulary(dictionary);
 		Mat allBowDescriptors;
 
-		for (int i = 0; i < 100; i++){
+		cout << "Getting Descriptors" << endl;
+
+		for (int i = 0; i < nPictures; i++){
 			string imageName = imagePath + to_string(i + 1) + ".png";
 			//string imageName = imagePath + to_string(i + 1) + ".jpg";
 			Utilities::openImage(imageName, img);
@@ -126,10 +132,22 @@ int main(){
 			Mat bowDescriptor;
 			//extract BoW (or BoF) descriptor from given image
 			bowDE.compute(img, keypoints, bowDescriptor);
+			if (bowDescriptor.empty()) {
+				labels.erase(labels.begin() + i);
+			}
 			allBowDescriptors.push_back(bowDescriptor);
 			//Utilities::drawKeypoints("img keypoints", img, keypoints);
 			//waitKey(0);
 
+		}
+
+		cout << "Adjusting Labels to Descriptors Found" << endl;
+
+		Mat learningLabels(labels.size(), 1, CV_32SC1);
+
+		for (int i = 0; i<labels.size(); i++){
+			
+			learningLabels.at<int>(i) = labels[i];
 		}
 
 		CvSVMParams params;
@@ -139,25 +157,27 @@ int main(){
 		params.C = 312.50000000000000;
 		params.term_crit = cvTermCriteria(CV_TERMCRIT_ITER, 100, 0.000001);
 
+		cout << "Training SVM" << endl;
+
 		svm.train(allBowDescriptors, learningLabels, Mat(), Mat(), params);
 
 		/*CvSVMParams params2;
 		svm.train_auto(allBowDescriptors, learningLabels, Mat(), Mat(),params2);*/
 
-		string filename = "svm/smallTest.xml";
+		string filename = "smallTest.xml";
 		cout << "SVM saved under the name: " << filename << endl;
 		svm.save(filename.c_str());
 
 	}
 	else{
-		string filename = "svm/smallTest.xml";
+		string filename = "smallTest.xml";
 		cout << "Loading SVM" << endl;
 		svm.load(filename.c_str());
 		Mat img;
 		Mat bowDescriptor;
 		//prepare BOW descriptor extractor from the dictionary    
 		Mat dictionary;
-		FileStorage fs("svm/dictionary.yml", FileStorage::READ);
+		FileStorage fs("dictionary.yml", FileStorage::READ);
 		fs["vocabulary"] >> dictionary;
 		fs.release();
 
