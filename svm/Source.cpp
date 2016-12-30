@@ -13,8 +13,8 @@ int main(){
 
 	initModule_nonfree();
 
-	string imagePath = "train/";//"DatasetSample/Train/";
-	string imageTestPath = "test/"; //"DatasetSample/Test/";
+	string imagePath = "train/"; //"DatasetSample/Train/";
+	string imageTestPath =  "test2/"; //"DatasetSample/Test2/";
 
 	Mat example;
 	vector<int> labels;
@@ -41,6 +41,13 @@ int main(){
 	BOWImgDescriptorExtractor bowDE(extractor, matcher);
 	
 	bool train = false;
+
+	CvSVMParams params;
+	params.kernel_type = CvSVM::RBF;
+	params.svm_type = CvSVM::C_SVC;
+	params.gamma = 0.50625000000000009;
+	params.C = 200.50000000000000;
+	params.term_crit = cvTermCriteria(CV_TERMCRIT_ITER, 1000, 0.000001);
 
 	if (train){
 
@@ -150,19 +157,26 @@ int main(){
 			learningLabels.at<int>(i) = labels[i];
 		}
 
-		CvSVMParams params;
+		/*CvSVMParams params;
 		params.kernel_type = CvSVM::RBF;
 		params.svm_type = CvSVM::C_SVC;
-		params.gamma = 0.50625000000000009;
-		params.C = 312.50000000000000;
-		params.term_crit = cvTermCriteria(CV_TERMCRIT_ITER, 100, 0.000001);
+		params.gamma = 0.51125000000000009;
+		params.C = 200.50000000000000;
+		params.term_crit = cvTermCriteria(CV_TERMCRIT_ITER, 100, 0.000001);*/
 
 		cout << "Training SVM" << endl;
 
 		svm.train(allBowDescriptors, learningLabels, Mat(), Mat(), params);
 
-		/*CvSVMParams params2;
-		svm.train_auto(allBowDescriptors, learningLabels, Mat(), Mat(),params2);*/
+		//CvSVMParams params2;
+		//params2.kernel_type = CvSVM::RBF;
+		//params.svm_type = CvSVM::C_SVC;
+		//params.gamma = 0.50625000000000009;
+		//params.C = 312.50000000000000;
+		//params.term_crit = cvTermCriteria(CV_TERMCRIT_ITER, 100, 0.000001);
+
+		//bool something = svm.train_auto(allBowDescriptors, learningLabels, Mat(), Mat(),params2,3);
+		//svm.train(allBowDescriptors, learningLabels, Mat(), Mat(), params2);
 
 		string filename = "smallTest.xml";
 		cout << "SVM saved under the name: " << filename << endl;
